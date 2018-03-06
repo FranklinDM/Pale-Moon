@@ -2363,7 +2363,7 @@ EmitNameOp(ExclusiveContext* cx, BytecodeEmitter* bce, ParseNode* pn, bool callC
 }
 
 static bool
-EmitPropLHS(ExclusiveContext* cx, ParseNode* pn, JSOp op, BytecodeEmitter* bce)
+EmitPropLHS(ExclusiveContext* cx, ParseNode* pn, BytecodeEmitter* bce)
 {
     MOZ_ASSERT(pn->isKind(PNK_DOT));
     ParseNode* pn2 = pn->maybeExpr();
@@ -2415,7 +2415,7 @@ EmitPropOp(ExclusiveContext* cx, ParseNode* pn, JSOp op, BytecodeEmitter* bce)
 {
     MOZ_ASSERT(pn->isArity(PN_NAME));
 
-    if (!EmitPropLHS(cx, pn, op, bce))
+    if (!EmitPropLHS(cx, pn, bce))
         return false;
 
     if (op == JSOP_CALLPROP && Emit1(cx, bce, JSOP_DUP) < 0)
@@ -2438,8 +2438,7 @@ EmitPropIncDec(ExclusiveContext* cx, ParseNode* pn, BytecodeEmitter* bce)
     bool post;
     JSOp binop = GetIncDecInfo(pn->getKind(), &post);
 
-    JSOp get = JSOP_GETPROP;
-    if (!EmitPropLHS(cx, pn->pn_kid, get, bce))     // OBJ
+    if (!EmitPropLHS(cx, pn->pn_kid, bce))          // OBJ
         return false;
     if (Emit1(cx, bce, JSOP_DUP) < 0)               // OBJ OBJ
         return false;
