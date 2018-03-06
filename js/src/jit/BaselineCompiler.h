@@ -162,7 +162,7 @@ namespace jit {
     _(JSOP_INSTANCEOF)         \
     _(JSOP_TYPEOF)             \
     _(JSOP_TYPEOFEXPR)         \
-    _(JSOP_SETCALL)            \
+    _(JSOP_THROWMSG)           \
     _(JSOP_THROW)              \
     _(JSOP_THROWING)           \
     _(JSOP_TRY)                \

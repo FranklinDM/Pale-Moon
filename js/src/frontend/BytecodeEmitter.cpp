@@ -6346,8 +6346,7 @@ EmitCallOrNew(ExclusiveContext* cx, BytecodeEmitter* bce, ParseNode* pn)
         EMIT_UINT16_IMM_OP(JSOP_LINENO, lineNum);
     }
     if (pn->pn_xflags & PNX_SETCALL) {
-        if (Emit1(cx, bce, JSOP_SETCALL) < 0)
-            return false;
+        EMIT_UINT16_IMM_OP(JSOP_THROWMSG, JSMSG_BAD_LEFTSIDE_OF_ASS);
     }
     return true;
 }
