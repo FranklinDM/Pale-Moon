@@ -44,6 +44,175 @@ namespace JS {
 
 class AutoIdVector;
 
+/**
+ * Per ES6, the [[DefineOwnProperty]] internal method has three different
+ * possible outcomes:
+ *
+ * -   It can throw an exception (which we indicate by returning false).
+ *
+ * -   It can return true, indicating unvarnished success.
+ *
+ * -   It can return false, indicating "strict failure". The property could
+ *     not be defined. It's an error, but no exception was thrown.
+ *
+ * It's not just [[DefineOwnProperty]]: all the mutating internal methods have
+ * the same three outcomes. (The other affected internal methods are [[Set]],
+ * [[Delete]], [[SetPrototypeOf]], and [[PreventExtensions]].)
+ *
+ * If you think this design is awful, you're not alone.  But as it's the
+ * standard, we must represent these boolean "success" values somehow.
+ * ObjectOpSuccess is the class for this. It's like a bool, but when it's false
+ * it also stores an error code.
+ *
+ * Typical usage:
+ *
+ *     ObjectOpResult result;
+ *     if (!DefineProperty(cx, obj, id, ..., result))
+ *         return false;
+ *     if (!result)
+ *         return result.reportError(cx, obj, id);
+ *
+ * Users don't have to call `result.report()`; another possible ending is:
+ *
+ *     argv.rval().setBoolean(bool(result));
+ *     return true;
+ */
+class ObjectOpResult
+{
+  private:
+    /**
+     * code_ is either one of the special codes OkCode or Uninitialized, or
+     * an error code. For now the error codes are private to the JS engine;
+     * they're defined in js/src/js.msg.
+     *
+     * code_ is uintptr_t (rather than uint32_t) for the convenience of the
+     * JITs, which would otherwise have to deal with either padding or stack
+     * alignment on 64-bit platforms.
+     */
+    uintptr_t code_;
+
+  public:
+    enum SpecialCodes : uintptr_t {
+        OkCode = 0,
+        Uninitialized = uintptr_t(-1)
+    };
+
+    ObjectOpResult() : code_(Uninitialized) {}
+
+    /* Return true if succeed() was called. */
+    bool ok() const {
+        MOZ_ASSERT(code_ != Uninitialized);
+        return code_ == OkCode;
+    }
+
+    explicit operator bool() const { return ok(); }
+
+    /* Set this ObjectOpResult to true and return true. */
+    bool succeed() {
+        code_ = OkCode;
+        return true;
+    }
+
+    /*
+     * Set this ObjectOpResult to false with an error code.
+     *
+     * Always returns true, as a convenience. Typical usage will be:
+     *
+     *     if (funny condition)
+     *         return result.fail(JSMSG_CANT_DO_THE_THINGS);
+     *
+     * The true return value indicates that no exception is pending, and it
+     * would be OK to ignore the failure and continue.
+     */
+    bool fail(uint32_t msg) {
+        MOZ_ASSERT(msg != OkCode);
+        code_ = msg;
+        return true;
+    }
+
+    JS_PUBLIC_API(bool) failCantRedefineProp();
+    JS_PUBLIC_API(bool) failReadOnly();
+    JS_PUBLIC_API(bool) failGetterOnly();
+    JS_PUBLIC_API(bool) failCantDelete();
+
+    JS_PUBLIC_API(bool) failCantSetInterposed();
+    JS_PUBLIC_API(bool) failCantDefineWindowElement();
+    JS_PUBLIC_API(bool) failCantDeleteWindowElement();
+    JS_PUBLIC_API(bool) failCantDeleteWindowNamedProperty();
+    JS_PUBLIC_API(bool) failCantPreventExtensions();
+    JS_PUBLIC_API(bool) failCantSetProto();
+    JS_PUBLIC_API(bool) failNoNamedSetter();
+    JS_PUBLIC_API(bool) failNoIndexedSetter();
+
+    uint32_t failureCode() const {
+        MOZ_ASSERT(!ok());
+        return uint32_t(code_);
+    }
+
+    /*
+     * Report an error or warning if necessary; return true to proceed and
+     * false if an error was reported. Call this when failure should cause
+     * a warning if extraWarnings are enabled.
+     *
+     * The precise rules are like this:
+     *
+     * -   If ok(), then we succeeded. Do nothing and return true.
+     * -   Otherwise, if |strict| is true, or if cx has both extraWarnings and
+     *     werrorOption enabled, throw a TypeError and return false.
+     * -   Otherwise, if cx has extraWarnings enabled, emit a warning and
+     *     return true.
+     * -   Otherwise, do nothing and return true.
+     */
+    bool checkStrictErrorOrWarning(JSContext* cx, HandleObject obj, HandleId id, bool strict) {
+        if (ok())
+            return true;
+        return reportStrictErrorOrWarning(cx, obj, id, strict);
+    }
+
+    /*
+     * The same as checkStrictErrorOrWarning(cx, id, strict), except the
+     * operation is not associated with a particular property id. This is
+     * used for [[PreventExtensions]] and [[SetPrototypeOf]]. failureCode()
+     * must not be an error that has "{0}" in the error message.
+     */
+    bool checkStrictErrorOrWarning(JSContext* cx, HandleObject obj, bool strict) {
+        return ok() || reportStrictErrorOrWarning(cx, obj, strict);
+    }
+
+    /* Throw a TypeError. Call this only if !ok(). */
+    bool reportError(JSContext* cx, HandleObject obj, HandleId id) {
+        return reportStrictErrorOrWarning(cx, obj, id, true);
+    }
+
+    /*
+     * The same as reportError(cx, obj, id), except the operation is not
+     * associated with a particular property id.
+     */
+    bool reportError(JSContext* cx, HandleObject obj) {
+        return reportStrictErrorOrWarning(cx, obj, true);
+    }
+
+    /* Helper function for checkStrictErrorOrWarning's slow path. */
+    JS_PUBLIC_API(bool) reportStrictErrorOrWarning(JSContext* cx, HandleObject obj, HandleId id, bool strict);
+    JS_PUBLIC_API(bool) reportStrictErrorOrWarning(JSContext* cx, HandleObject obj, bool strict);
+
+    /*
+     * Convenience method. Return true if ok() or if strict is false; otherwise
+     * throw a TypeError and return false.
+     */
+    bool checkStrict(JSContext* cx, HandleObject obj, HandleId id) {
+        return checkStrictErrorOrWarning(cx, obj, id, true);
+    }
+
+    /*
+     * Convenience method. The same as checkStrict(cx, id), except the
+     * operation is not associated with a particular property id.
+     */
+    bool checkStrict(JSContext* cx, HandleObject obj) {
+        return checkStrictErrorOrWarning(cx, obj, true);
+    }
+};
+
 }
 
 // JSClass operation signatures.
