@@ -1372,9 +1372,12 @@ ModOperation(JSContext* cx, HandleValue lhs, HandleValue rhs, MutableHandleValue
 }
 
 static MOZ_ALWAYS_INLINE bool
-SetObjectElementOperation(JSContext* cx, Handle<JSObject*> obj, HandleId id, const Value& value,
-                          bool strict, JSScript* script = nullptr, jsbytecode* pc = nullptr)
+SetObjectElementOperation(JSContext* cx, HandleObject obj, HandleValue receiver, HandleId id,
+                          const Value& value, bool strict, JSScript* script = nullptr,
+                          jsbytecode* pc = nullptr)
 {
+    // receiver != obj happens only at super[expr], where we expect to find the property
+    // People probably aren't building hashtables with |super| anyway.
     TypeScript::MonitorAssign(cx, obj, id);
 
     if (obj->isNative() && JSID_IS_INT(id)) {
@@ -1651,18 +1654,10 @@ CASE(EnableInterruptsPseudoOpcode)
 /* Various 1-byte no-ops. */
 CASE(JSOP_NOP)
 CASE(JSOP_UNUSED2)
-CASE(JSOP_UNUSED92)
-CASE(JSOP_UNUSED103)
-CASE(JSOP_UNUSED104)
-CASE(JSOP_UNUSED105)
-CASE(JSOP_UNUSED107)
-CASE(JSOP_UNUSED125)
 CASE(JSOP_UNUSED126)
 CASE(JSOP_UNUSED148)
 CASE(JSOP_BACKPATCH)
 CASE(JSOP_UNUSED157)
-CASE(JSOP_UNUSED158)
-CASE(JSOP_UNUSED159)
 CASE(JSOP_UNUSED161)
 CASE(JSOP_UNUSED162)
 CASE(JSOP_UNUSED163)
@@ -2429,6 +2424,23 @@ CASE(JSOP_CALLPROP)
 }
 END_CASE(JSOP_GETPROP)
 
+CASE(JSOP_GETPROP_SUPER)
+{
+    RootedObject& receiver = rootObject0;
+    RootedObject& obj = rootObject1;
+
+    FETCH_OBJECT(cx, -2, receiver);
+    obj = &REGS.sp[-1].toObject();
+
+    MutableHandleValue rref = REGS.stackHandleAt(-2);
+
+    if (!GetProperty(cx, obj, receiver, script->getName(REGS.pc), rref))
+        goto error;
+
+    REGS.sp--;
+}
+END_CASE(JSOP_GETPROP_SUPER)
+
 CASE(JSOP_GETXPROP)
 {
     RootedObject& obj = rootObject0;
@@ -2495,6 +2507,38 @@ CASE(JSOP_STRICTSETPROP)
 }
 END_CASE(JSOP_SETPROP)
 
+CASE(JSOP_SETPROP_SUPER)
+CASE(JSOP_STRICTSETPROP_SUPER)
+{
+    static_assert(JSOP_SETPROP_SUPER_LENGTH == JSOP_STRICTSETPROP_SUPER_LENGTH,
+                  "setprop-super and strictsetprop-super must be the same size");
+
+
+    RootedValue& receiver = rootValue0;
+    receiver = REGS.sp[-3];
+    
+    RootedObject& obj = rootObject0;
+    obj = &REGS.sp[-2].toObject();
+
+    RootedValue& rval = rootValue1;
+    rval = REGS.sp[-1];
+
+    RootedId& id = rootId0;
+    id = NameToId(script->getName(REGS.pc));
+
+    ObjectOpResult result;
+    bool strict = JSOp(*REGS.pc) == JSOP_STRICTSETPROP_SUPER;
+    if (!SetProperty(cx, obj, obj, id, &receiver, strict))
+        goto error;
+
+//    if (!result.checkStrictErrorOrWarning(cx, obj, id, strict))
+//        goto error;
+
+    REGS.sp[-3] = REGS.sp[-1];
+    REGS.sp -= 2;
+}
+END_CASE(JSOP_SETPROP_SUPER)
+
 CASE(JSOP_GETELEM)
 CASE(JSOP_CALLELEM)
 {
@@ -2516,6 +2560,27 @@ CASE(JSOP_CALLELEM)
 }
 END_CASE(JSOP_GETELEM)
 
+CASE(JSOP_GETELEM_SUPER)
+{
+    HandleValue rval = REGS.stackHandleAt(-3);
+    RootedObject& receiver = rootObject0;
+    FETCH_OBJECT(cx, -2, receiver);
+    RootedObject& obj = rootObject1;
+    obj = &REGS.sp[-1].toObject();
+
+    MutableHandleValue res = REGS.stackHandleAt(-3);
+
+    // Since we have asserted that obj has to be an object, it cannot be
+    // either optimized arguments, or indeed any primitive. This simplifies
+    // our task some.
+    if (!GetObjectElementOperation(cx, JSOp(*REGS.pc), obj, receiver, rval, res))
+        goto error;
+
+    TypeScript::Monitor(cx, script, REGS.pc, res);
+    REGS.sp -= 2;
+}
+END_CASE(JSOP_GETELEM_SUPER)
+
 CASE(JSOP_SETELEM)
 CASE(JSOP_STRICTSETELEM)
 {
@@ -2526,12 +2591,36 @@ CASE(JSOP_STRICTSETELEM)
     RootedId& id = rootId0;
     FETCH_ELEMENT_ID(-2, id);
     Value& value = REGS.sp[-1];
-    if (!SetObjectElementOperation(cx, obj, id, value, *REGS.pc == JSOP_STRICTSETELEM))
+    RootedValue& receiver = rootValue0;
+    receiver = ObjectValue(*obj);
+    if (!SetObjectElementOperation(cx, obj, receiver, id, value, *REGS.pc == JSOP_STRICTSETELEM))
         goto error;
     REGS.sp[-3] = value;
     REGS.sp -= 2;
 }
 END_CASE(JSOP_SETELEM)
+
+CASE(JSOP_SETELEM_SUPER)
+CASE(JSOP_STRICTSETELEM_SUPER)
+{
+    static_assert(JSOP_SETELEM_SUPER_LENGTH == JSOP_STRICTSETELEM_SUPER_LENGTH,
+                  "setelem-super and strictsetelem-super must be the same size");
+
+    RootedId& id = rootId0;
+    FETCH_ELEMENT_ID(-4, id);
+    RootedValue& receiver = rootValue0;
+    receiver = REGS.sp[-3];
+    RootedObject& obj = rootObject1;
+    obj = &REGS.sp[-2].toObject();
+    Value& value = REGS.sp[-1];
+
+    bool strict = JSOp(*REGS.pc) == JSOP_STRICTSETELEM_SUPER;
+    if (!SetObjectElementOperation(cx, obj, receiver, id, value, strict))
+        goto error;
+    REGS.sp[-4] = value;
+    REGS.sp -= 3;
+}
+END_CASE(JSOP_SETELEM_SUPER)
 
 CASE(JSOP_EVAL)
 CASE(JSOP_STRICTEVAL)
@@ -3586,8 +3675,8 @@ CASE(JSOP_CLASSHERITAGE)
         }
     }
 
-    REGS.sp[-1] = objProto;
-    PUSH_OBJECT(*funcProto);
+    REGS.sp[-1].setObject(*funcProto);
+    PUSH_COPY(objProto);
 }
 END_CASE(JSOP_CLASSHERITAGE)
 
@@ -3621,6 +3710,55 @@ CASE(JSOP_OBJWITHPROTO)
     REGS.sp[-1].setObject(*obj);
 }
 END_CASE(JSOP_OBJWITHPROTO)
+
+CASE(JSOP_INITHOMEOBJECT)
+{
+    MOZ_ASSERT(REGS.stackDepth() >= 2);
+
+    /* Load the function to be initialized */
+    RootedFunction& func = rootFunction0;
+    func = &REGS.sp[-1].toObject().as<JSFunction>();
+    MOZ_ASSERT(func->isMethod());
+
+    /* Load the home object */
+    RootedNativeObject& obj = rootNativeObject0;
+    obj = &REGS.sp[-2].toObject().as<NativeObject>();
+    MOZ_ASSERT(obj->is<PlainObject>() || obj->is<JSFunction>());
+
+    func->setExtendedSlot(FunctionExtended::METHOD_HOMEOBJECT_SLOT, ObjectValue(*obj));
+}
+END_CASE(JSOP_INITHOMEOBJECT)
+
+CASE(JSOP_SUPERBASE)
+{
+    ScopeIter si(cx, REGS.fp()->scopeChain(), REGS.fp()->script()->innermostStaticScope(REGS.pc));
+    for (; !si.done(); ++si) {
+        if (si.hasScopeObject() && si.type() == ScopeIter::Call) {
+            JSFunction& callee = si.scope().as<CallObject>().callee();
+            MOZ_ASSERT(callee.isMethod());
+            MOZ_ASSERT(callee.nonLazyScript()->needsHomeObject());
+            const Value& homeObjVal = callee.getExtendedSlot(FunctionExtended::METHOD_HOMEOBJECT_SLOT);
+
+            RootedObject& homeObj = rootObject0;
+            homeObj = &homeObjVal.toObject();
+
+            RootedObject& superBase = rootObject1;
+            if (!GetPrototype(cx, homeObj, &superBase))
+                goto error;
+
+            if (!superBase) {
+                JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_CONVERT_TO,
+                                     "null", "object");
+                goto error;
+            }
+            PUSH_OBJECT(*superBase);
+            break;
+        }
+    }
+    if (si.done())
+        MOZ_CRASH("Unexpected scope chain in superbase");
+}
+END_CASE(JSOP_SUPERBASE)
 
 DEFAULT()
 {
@@ -3990,7 +4128,8 @@ js::SetObjectElement(JSContext* cx, HandleObject obj, HandleValue index, HandleV
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, index, &id))
         return false;
-    return SetObjectElementOperation(cx, obj, id, value, strict);
+    RootedValue receiver(cx, ObjectValue(*obj));
+    return SetObjectElementOperation(cx, obj, receiver, id, value, strict);
 }
 
 bool
@@ -4001,7 +4140,8 @@ js::SetObjectElement(JSContext* cx, HandleObject obj, HandleValue index, HandleV
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, index, &id))
         return false;
-    return SetObjectElementOperation(cx, obj, id, value, strict, script, pc);
+    RootedValue receiver(cx, ObjectValue(*obj));
+    return SetObjectElementOperation(cx, obj, receiver, id, value, strict, script, pc);
 }
 
 bool

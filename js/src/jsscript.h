@@ -1000,6 +1000,8 @@ class JSScript : public js::gc::TenuredCell
     // testing function for scripts that are on the stack. Usually we don't
     // relazify functions in compartments with scripts on the stack.
     bool doNotRelazify_:1;
+    
+    bool needsHomeObject_:1;
 
     // Add padding so JSScript is gc::Cell aligned. Make padding protected
     // instead of private to suppress -Wunused-private-field compiler warnings.
@@ -1249,6 +1251,13 @@ class JSScript : public js::gc::TenuredCell
         // so it can only transition from not being a generator.
         MOZ_ASSERT(!isGenerator());
         generatorKindBits_ = GeneratorKindAsBits(kind);
+    }
+
+    void setNeedsHomeObject() {
+        needsHomeObject_ = true;
+    }
+    bool needsHomeObject() const {
+        return needsHomeObject_;
     }
 
     /*
