@@ -1598,7 +1598,8 @@ already_AddRefed<TimeRanges>
 HTMLMediaElement::Seekable() const
 {
   nsRefPtr<TimeRanges> ranges = new TimeRanges();
-  if (mDecoder && mReadyState > nsIDOMHTMLMediaElement::HAVE_NOTHING) {
+  if (mMediaSource ||
+      (mDecoder && mReadyState > nsIDOMHTMLMediaElement::HAVE_NOTHING)) {
     mDecoder->GetSeekable().ToTimeRanges(ranges);
   }
   return ranges.forget();
@@ -3032,6 +3033,9 @@ public:
   {
     NS_ASSERTION(NS_IsMainThread(), "Should be on main thread.");
 
+    if (!mElement) {
+      return;
+    }
     mElement->NotifyMediaStreamTracksAvailable(aStream);
   }
 private:
@@ -3225,7 +3229,7 @@ void HTMLMediaElement::MetadataLoaded(const MediaInfo* aInfo,
     NotifyOwnerDocumentActivityChanged();
   }
 
-  if (mDefaultPlaybackStartPosition > 0) {
+  if (mDefaultPlaybackStartPosition != 0.0) {
     SetCurrentTime(mDefaultPlaybackStartPosition);
     mDefaultPlaybackStartPosition = 0.0;
   }
@@ -3236,6 +3240,11 @@ void HTMLMediaElement::FirstFrameLoaded()
   NS_ASSERTION(!mSuspendedAfterFirstFrame, "Should not have already suspended");
 
   ChangeDelayLoadStatus(false);
+  
+  // FIXME: This is a workaround for DoneCreatingElement() not being called
+  // at the appropriate time when cloning elements, to preserve the "muted"
+  // status. See bug 1424871.
+  if (HasAttr(kNameSpaceID_None, nsGkAtoms::muted)) SetMuted(true);
 
   if (mDecoder && mAllowSuspendAfterFirstFrame && mPaused &&
       !HasAttr(kNameSpaceID_None, nsGkAtoms::autoplay) &&

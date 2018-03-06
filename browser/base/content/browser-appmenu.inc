@@ -147,6 +147,8 @@
                     observes="devtoolsMenuBroadcaster_BrowserConsole"/>
           <menuitem id="appmenu_responsiveUI"
                     observes="devtoolsMenuBroadcaster_ResponsiveUI"/>
+          <menuitem id="appmenu_eyedropper"
+                    observes="devtoolsMenuBroadcaster_Eyedropper"/>
           <menuitem id="appmenu_scratchpad"
                     observes="devtoolsMenuBroadcaster_Scratchpad"/>
 #endif
@@ -343,20 +345,12 @@
                 oncommand="gSyncUI.doSync(event);"/>
 #endif
       <splitmenu id="appmenu_customize"
-#ifdef XP_UNIX
-                 label="&preferencesCmdUnix.label;"
-#else
                  label="&preferencesCmd2.label;"
-#endif
                  oncommand="openPreferences();">
           <menupopup id="appmenu_customizeMenu"
                      onpopupshowing="onViewToolbarsPopupShowing(event, document.getElementById('appmenu_toggleToolbarsSeparator'));">
             <menuitem id="appmenu_preferences"
-#ifdef XP_UNIX
-                      label="&preferencesCmdUnix.label;"
-#else
                       label="&preferencesCmd2.label;"
-#endif
                       oncommand="openPreferences();"/>
             <menuseparator/>
             <menuseparator id="appmenu_toggleToolbarsSeparator"/>

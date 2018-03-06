@@ -34,6 +34,7 @@
       <preference id="browser.tabs.insertRelatedAfterCurrent"  name="browser.tabs.insertRelatedAfterCurrent"  type="bool"/>
       <preference id="browser.search.context.loadInBackground" name="browser.search.context.loadInBackground" type="bool" inverted="true"/>
       <preference id="browser.tabs.closeWindowWithLastTab"     name="browser.tabs.closeWindowWithLastTab"     type="bool"/>
+      <preference id="browser.ctrlTab.previews"                name="browser.ctrlTab.previews"                type="bool"/>
       
       <preference id="browser.newtab.url"    name="browser.newtab.url"    type="string"/>
       <preference id="browser.newtab.myhome" name="browser.newtab.myhome" type="string"/>
@@ -77,11 +78,14 @@
                 preference="browser.search.context.loadInBackground"/>
       <checkbox id="closeWindowWithLastTab" label="&closeWindowWithLastTab.label;"
                 preference="browser.tabs.closeWindowWithLastTab"/>
+      <checkbox id="showTabPreviews" label="&showTabPreviews.label;"
+                preference="browser.ctrlTab.previews"/>
       <hbox align="center">
         <label value="&newtabPage.label;"/>
         <menulist 
           id="newtabPage"
-          preference="browser.newtab.choice">
+          preference="browser.newtab.choice"
+          oncommand="gTabsPane.writeNewtabUrl(event.target.value);">
           <menupopup>
             <menuitem label="&newtabPage.custom.label;"    value="0" id="newtabPageCustom" hidden="true" />
             <menuitem label="&newtabPage.blank.label;"     value="1" />

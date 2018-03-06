@@ -2788,9 +2788,7 @@ XREMain::XRE_mainInit(bool* aExitFlag)
     // dwrite library and create a factory as early as possible so that the
     // FntCache service is ready by the time it's needed.
 
-    if (IsVistaOrLater()) {
-      CreateThread(nullptr, 0, &InitDwriteBG, nullptr, 0, nullptr);
-    }
+    CreateThread(nullptr, 0, &InitDwriteBG, nullptr, 0, nullptr);
   }
 #endif
 
@@ -3593,8 +3591,8 @@ XREMain::XRE_mainRun()
         if (gDoProfileReset) {
           // Automatically migrate from the current application if we just
           // reset the profile.
-          //Hard-code MOZ_APP_NAME to firefox because of hard-coded type in migrator.
-          aKey = (MOZ_APP_NAME == "palemoon") ? "firefox" : MOZ_APP_NAME;
+          // Hard-code MOZ_APP_NAME to firefox because of hard-coded type in migrator.
+          aKey = (strcmp(MOZ_APP_NAME, "palemoon") == 0) ? "firefox" : MOZ_APP_NAME;
         }
         pm->Migrate(&mDirProvider, aKey, gResetOldProfileName);
       }

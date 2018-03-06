@@ -117,6 +117,12 @@ IsBidiUI()
   return Preferences::GetBool("bidi.browser.ui");
 }
 
+static bool
+CjkThickCaret()
+{
+  return Preferences::GetBool("layout.cjkthickcaret");
+}
+
 nsCaret::nsCaret()
 : mOverrideOffset(0)
 , mIsBlinkOn(false)
@@ -188,7 +194,7 @@ nsCaret::ComputeMetrics(nsIFrame* aFrame, int32_t aOffset, nscoord aCaretHeight)
     nsPresContext::CSSPixelsToAppUnits(
         LookAndFeel::GetInt(LookAndFeel::eIntID_CaretWidth, 1));
 
-  if (DrawCJKCaret(aFrame, aOffset)) {
+  if (DrawCJKCaret(aFrame, aOffset) && CjkThickCaret()) {
     caretWidth += nsPresContext::CSSPixelsToAppUnits(1);
   }
   nscoord bidiIndicatorSize = nsPresContext::CSSPixelsToAppUnits(kMinBidiIndicatorPixels);
@@ -198,8 +204,8 @@ nsCaret::ComputeMetrics(nsIFrame* aFrame, int32_t aOffset, nscoord aCaretHeight)
   // between 0 and 1 goes up to 1 so we don't let the caret disappear.
   int32_t tpp = aFrame->PresContext()->AppUnitsPerDevPixel();
   Metrics result;
-  result.mCaretWidth = NS_ROUND_BORDER_TO_PIXELS(caretWidth, tpp);
-  result.mBidiIndicatorSize = NS_ROUND_BORDER_TO_PIXELS(bidiIndicatorSize, tpp);
+  result.mCaretWidth = NS_ROUND_CARET_TO_PIXELS(caretWidth, tpp);
+  result.mBidiIndicatorSize = NS_ROUND_CARET_TO_PIXELS(bidiIndicatorSize, tpp);
   return result;
 }
 
