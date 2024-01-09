@@ -14,9 +14,7 @@
 !define DDEApplication        "Pale Moon"
 !define AppRegName            "Pale Moon"
 
-!ifndef DEV_EDITION
 !define BrandShortName        "@MOZ_APP_DISPLAYNAME@"
-!endif
 !define BrandFullName         "${BrandFullNameInternal}"
 
 !define CERTIFICATE_NAME            "Mozilla Corporation"
