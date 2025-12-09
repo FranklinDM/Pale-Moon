@@ -998,8 +998,10 @@ pref("toolbar.customization.usesheet", true);
 pref("toolbar.customization.usesheet", false);
 #endif
 
-// Whether plugins are run out-of-process
+// Whether plugins are run out-of-process. Only applicable in non-GTK3
+#if !defined(MOZ_WIDGET_GTK) || (MOZ_WIDGET_GTK == 2)
 pref("dom.ipc.plugins.enabled", true);
+#endif
 
 // This pref governs whether we attempt to work around problems caused by
 // plugins using OS calls to manipulate the cursor while running out-of-
