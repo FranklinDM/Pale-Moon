@@ -21,6 +21,16 @@
 #endif
 #endif
 
+#ifdef MOZ_WIDGET_GTK
+#ifndef MOZ_WIDGET_GTK2
+#define NOT_GTK3
+#endif
+#endif
+
+#ifndef MOZ_WIDGET_GTK
+#define NOT_GTK3
+#endif
+
 pref("browser.chromeURL","chrome://browser/content/");
 pref("browser.hiddenWindowChromeURL", "chrome://browser/content/hiddenWindow.xul");
 
@@ -999,7 +1009,7 @@ pref("toolbar.customization.usesheet", false);
 #endif
 
 // Whether plugins are run out-of-process. Only applicable in non-GTK3
-#if !defined(MOZ_WIDGET_GTK) || (MOZ_WIDGET_GTK == 2)
+#ifdef NOT_GTK3
 pref("dom.ipc.plugins.enabled", true);
 #endif
 
