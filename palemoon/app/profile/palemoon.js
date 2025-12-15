@@ -1008,6 +1008,7 @@ pref("toolbar.customization.usesheet", true);
 pref("toolbar.customization.usesheet", false);
 #endif
 
+#ifdef MOZ_ENABLE_NPAPI
 // Whether plugins are run out-of-process. Only applicable in non-GTK3
 #ifdef NOT_GTK3
 pref("dom.ipc.plugins.enabled", true);
@@ -1023,6 +1024,7 @@ pref("dom.ipc.plugins.enabled", true);
 #ifdef XP_MACOSX
 pref("dom.ipc.plugins.nativeCursorSupport", true);
 #endif
+#endif /* MOZ_ENABLE_NPAPI */
 
 #ifdef XP_WIN
 pref("browser.taskbar.previews.enable", false);
