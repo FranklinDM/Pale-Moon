@@ -22,7 +22,7 @@
 #endif
 
 #ifdef MOZ_WIDGET_GTK
-#ifdef MOZ_WIDGET_GTK2
+#if MOZ_WIDGET_GTK != 3
 #define NOT_GTK3
 #endif
 #endif
