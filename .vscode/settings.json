@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "shared_mutex": "cpp",
+        "bitset": "cpp",
+        "string_view": "cpp",
+        "regex": "cpp"
+    },
+    "rpc.enabled": true,
+    "rpc.detailsIdling": "AFK",
+    "rpc.detailsEditing": "👨‍💻: {file_name} with {total_lines} lines",
+    "rpc.lowerDetailsDebugging": "💼: {git_repo}, {git_branch}",
+    "rpc.lowerDetailsEditing": "💼: {git_repo}, {git_branch}",
+    "rpc.lowerDetailsViewing": "💼: {git_repo}, {git_branch}"
+}
